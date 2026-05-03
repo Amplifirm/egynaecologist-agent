@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import date, time
+from datetime import date, datetime, time
 
 import resend
 
@@ -430,31 +430,56 @@ def send_escalation_notification(
 def send_front_desk_notification(
     *,
     booking_ref: str,
-    appointment_date: date,
+    appointment_date: date | None = None,  # kept for backwards compat; no longer used
 ) -> None:
     """Booking-reference-only email to the front desk per the Secure Booking Email
     Protocol (Option C). Never includes patient name, phone, email, or service code in
     the subject or body.
+
+    Includes the time the agent captured the request, in London time, so the team
+    has a sense of how recent it is. The actual data lives in the dashboard.
     """
+    _ = appointment_date  # unused
     if not _FRONT_DESK:
         log.warning("FRONT_DESK_EMAIL not set — skipping front-desk notification")
         return
-    deadline = appointment_date.strftime("%-d %B %Y")
-    subject = f"New Booking — Ref #{booking_ref}"
+    import pytz
+    london = datetime.now(pytz.timezone("Europe/London"))
+    captured_at = london.strftime("%A %-d %B %Y, %-I:%M %p").replace("AM", "am").replace("PM", "pm")
+    subject = f"New lead — Ref #{booking_ref}"
     text = (
-        f"NEW BOOKING NOTIFICATION\n"
-        f"------------------------\n"
+        f"NEW LEAD\n"
+        f"--------\n"
         f"Booking Ref: {booking_ref}\n"
-        f"Action: Please review in the secure booking dashboard before 9am on {deadline}.\n\n"
-        f"Do not reply with patient details. Patient data is in the dashboard, not in this email.\n"
+        f"Captured:    {captured_at} (London)\n\n"
+        f"Action: review the full details in the dashboard.\n"
+        f"  https://egynaecologist-dashboard.vercel.app\n\n"
+        f"Do not reply with patient details — patient data lives in the dashboard, not in this email.\n"
     )
     html = f"""
-    <div style="font-family: monospace; font-size: 14px;">
-      <p><strong>NEW BOOKING NOTIFICATION</strong></p>
-      <p>Booking Ref: <strong>{booking_ref}</strong></p>
-      <p>Action: Please review in the secure booking dashboard before 9am on {deadline}.</p>
-      <p style="color: #a33;">Do not reply with patient details. Patient data is in the dashboard,
-      not in this email.</p>
+    <div style="font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif; max-width: 520px;">
+      <p style="font-family: Georgia, serif; font-style: italic; font-size: 22px; color: #11203b; margin: 0 0 12px 0;">
+        New lead captured
+      </p>
+      <table style="border-collapse: collapse; font-size: 14px; line-height: 1.7; margin-bottom: 16px;">
+        <tr>
+          <td style="padding-right: 24px; color:#8b8675; text-transform:uppercase; font-size:10px; letter-spacing:0.16em;">Booking ref</td>
+          <td style="font-family: monospace; color:#11203b;">{booking_ref}</td>
+        </tr>
+        <tr>
+          <td style="padding-right: 24px; color:#8b8675; text-transform:uppercase; font-size:10px; letter-spacing:0.16em;">Captured</td>
+          <td style="color:#11203b;">{captured_at} <span style="color:#8b8675;">(London)</span></td>
+        </tr>
+      </table>
+      <p style="margin: 16px 0; color:#324360;">
+        <a href="https://egynaecologist-dashboard.vercel.app"
+           style="color:#d94a87; text-decoration:none; font-weight:600;">
+          Review the full lead in the dashboard →
+        </a>
+      </p>
+      <p style="margin-top: 24px; font-size:11px; color:#aea69a; line-height:1.5;">
+        Patient details are NOT in this email — they're behind the dashboard login. Please don't reply with patient information.
+      </p>
     </div>
     """
     _send(_FRONT_DESK, subject, html, text)
