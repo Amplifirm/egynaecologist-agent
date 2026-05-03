@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+@theme {
+  /* === Typography ============================================ */
+  /* Fraunces — variable serif by Undercase Type. SOFT axis adds warmth.
+     Geist — Vercel's grotesque, used here for clean tabular data. */
+  --font-display: var(--font-fraunces), "EB Garamond", "Times New Roman", serif;
+  --font-sans: var(--font-geist), "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+
+  /* === Palette =============================================== */
+  /* "Harley Street consulting room": parchment, fountain-pen navy,
+     antique gilt, oxblood. Deliberately not Tailwind's defaults. */
+  --color-paper: #f8f2e6;
+  --color-paper-soft: #fcf8ee;
+  --color-paper-tint: #ede3ce;
+  --color-paper-deep: #e3d6b9;
+
+  --color-ink: #11203b;
+  --color-ink-soft: #324360;
+  --color-ink-mute: #5b6783;
+
+  --color-muted: #8b8675;
+  --color-muted-soft: #aea69a;
+
+  --color-claret: #8c2a2e;
+  --color-claret-soft: #b25a5e;
+  --color-forest: #2e4d3e;
+  --color-forest-soft: #5b7a6c;
+  --color-amber: #a76b1a;
+
+  --color-rule: #d7ccb3;
+  --color-rule-soft: #e7dfca;
+  --color-gilt: #a88945;
+  --color-gilt-soft: #c8aa6a;
+
+  /* Brand accents drawn from the egynaecologist logo (pink silhouette + green wordmark).
+     Used sparingly: pink for cancellation / dissent, green for confirmation rails. */
+  --color-brand-pink: #d94a87;
+  --color-brand-pink-soft: #f1abc6;
+  --color-brand-green: #82bd3f;
+  --color-brand-green-soft: #c4dfa1;
+
+  /* === Radii (kept tight; this is a ledger, not a card UI) ==== */
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+}
+
+/* ---------- Base ---------- */
+html, body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle paper grain. SVG noise filter blended at low opacity. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.045;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.07  0 0 0 0 0.13  0 0 0 0 0.23  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+/* ---------- Display type defaults ---------- */
+.font-display {
+  font-family: var(--font-display);
+  font-feature-settings: "liga", "dlig", "ss01";
+}
+
+/* ---------- Decorative components ---------- */
+.double-rule {
+  position: relative;
+  height: 4px;
+}
+.double-rule::before,
+.double-rule::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-rule);
+}
+.double-rule::before { top: 0; }
+.double-rule::after { bottom: 0; }
+
+.hairline {
+  height: 1px;
+  background: var(--color-rule);
+}
+
+.smcp {
+  font-variant: small-caps;
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "lnum";
+}
+
+/* ---------- Animations ---------- */
+@keyframes ledger-row-in {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.row-in { animation: ledger-row-in 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@keyframes letter-press {
+  0% { opacity: 0; transform: translateY(8px); letter-spacing: 0.1em; }
+  100% { opacity: 1; transform: translateY(0); letter-spacing: 0.005em; }
+}
+.letter-press { animation: letter-press 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@keyframes monogram-in {
+  0% { opacity: 0; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.monogram-in { animation: monogram-in 900ms cubic-bezier(0.2, 0.7, 0.2, 1) 100ms both; }
+
+/* Smooth row expansion (CSS Grid trick — animates display:grid rows from 0fr to 1fr) */
+.expand-row { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 320ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+.expand-row.open { grid-template-rows: 1fr; }
+.expand-row > .expand-inner { overflow: hidden; }
+
+/* ---------- Form controls ---------- */
+/* Wrapped in @layer base so Tailwind utility classes (text-paper etc.) still win. */
+@layer base {
+  input, button, textarea, select {
+    font: inherit;
+  }
+  button {
+    background: transparent;
+  }
+}
+
+.input-line {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-rule);
+  padding: 10px 2px;
+  width: 100%;
+  outline: none;
+  transition: border-color 200ms;
+}
+.input-line:focus {
+  border-bottom-color: var(--color-ink);
+}
+.input-line::placeholder {
+  color: var(--color-muted-soft);
+  font-style: italic;
+}
+
+/* ---------- Selection ---------- */
+::selection {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+/* ---------- Scrollbar (subtle) ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-paper-deep); border: 3px solid var(--color-paper); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-rule); }

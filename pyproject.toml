@@ -1,0 +1,19 @@
+[project]
+name = "egynaecologist-voice-agent"
+version = "0.1.0"
+description = "LiveKit voice agent for eGynaecologist booking system"
+requires-python = ">=3.11"
+dependencies = [
+    "livekit-agents[anthropic,openai,assemblyai,elevenlabs,silero,turn-detector]~=1.2",
+    "livekit-plugins-noise-cancellation~=0.2",
+    "livekit-api>=1.0",
+    "supabase>=2.9",
+    "resend>=2.4",
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+    "pytz>=2024.1",
+    "pydantic>=2.7",
+]
+
+[tool.uv]
+package = false

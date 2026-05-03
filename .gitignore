@@ -1,0 +1,32 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.DS_Store
+.pytest_cache/
+.ruff_cache/
+*.db
+*.sqlite
+.idea/
+.vscode/
+neso.db
+credentials.json
+
+# Dashboard build artefacts
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/.vercel
+dashboard/.env
+dashboard/.env.*
+!dashboard/.env.example
+dashboard/next-env.d.ts
+dashboard/*.tsbuildinfo
+
+# Railway / Vercel
+.railway/
+.vercel/
