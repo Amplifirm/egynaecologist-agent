@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   title: "egynaecologist · front desk",
   description: "Booking ledger for the front-desk team.",
   robots: { index: false, follow: false },
-  icons: { icon: "/favicon.svg" },
+  // Don't override icons — Next.js auto-generates them from app/icon.png + app/icon.svg.
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
