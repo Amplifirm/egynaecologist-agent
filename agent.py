@@ -241,5 +241,12 @@ if __name__ == "__main__":
             # to 8081 for local dev.
             port=int(os.environ.get("PORT", "8081")),
             host="0.0.0.0",
+            # Don't pre-warm idle worker subprocesses. By default LiveKit forks 3-4
+            # idle processes — combined with the inference executor that's 5-6
+            # Python interpreters loaded into memory at boot, and Railway's smaller
+            # memory plans OOM-kill the inference one. With 0 idle, processes spawn
+            # lazily when a call arrives (adds ~1-2s startup on the very first call
+            # after redeploy, then warm).
+            num_idle_processes=int(os.environ.get("NUM_IDLE_PROCESSES", "0")),
         )
     )
