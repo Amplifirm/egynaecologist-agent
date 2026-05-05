@@ -31,7 +31,13 @@ from livekit.agents.voice.background_audio import (
     BuiltinAudioClip,
 )
 from livekit.plugins import anthropic, assemblyai, elevenlabs, openai, silero
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+# We used to use livekit.plugins.turn_detector.MultilingualModel here, but it runs
+# in a separate inference subprocess that gets OOM-killed on smaller Railway plans.
+# When that subprocess dies, every end-of-turn prediction throws AssertionError and
+# the conversation locks up — Sophia can't detect that the caller is done speaking,
+# so she never moves on, never calls save_appointment_request, and the call ends
+# with no booking. VAD-only turn detection (the default when no model is passed)
+# is less linguistically aware but rock-solid memory-wise.
 
 import db
 import tools
@@ -203,7 +209,7 @@ async def entrypoint(ctx: JobContext) -> None:
             ),
         ),
         vad=silero.VAD.load(),
-        turn_detection=MultilingualModel(),
+        # turn_detection intentionally omitted — see import-block comment above.
     )
 
     # Soft keyboard "thinking" sound while the LLM generates a reply.
