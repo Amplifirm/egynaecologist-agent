@@ -438,16 +438,23 @@ async def transfer_to_colleague(
             "the caller and switch to taking a callback (capture details via the request "
             "flow and call save_appointment_request)."
         )
-    if target_digits == inbound_digits or (caller_digits and target_digits == caller_digits):
+    # Only refuse when target == INBOUND TRUNK NUMBER. That's the genuine
+    # self-call loop (Twilio receives an outbound dial to its own inbound number,
+    # routes it back via origination URL, infinite recursion).
+    # Target == caller's number is NOT a loop — it's a legitimate scenario
+    # (e.g. the user testing by calling from the same mobile they configured
+    # as the escalation phone, or any case where the patient's mobile happens
+    # to match the receptionist's phone).
+    if inbound_digits and target_digits == inbound_digits:
         log.error(
-            "LOOP GUARD: target=%s would loop back to inbound/caller — refusing to dial",
+            "LOOP GUARD: target=%s matches inbound trunk number — refusing to dial",
             target,
         )
         state.transfer_succeeded = False
         return (
-            "ERROR: the escalation phone matches the inbound number or the caller — a "
-            "transfer would loop. Apologise and switch to taking a callback (capture "
-            "details via the request flow and call save_appointment_request)."
+            "ERROR: the escalation phone matches the inbound trunk number — a transfer "
+            "would loop back. Apologise and switch to taking a callback (capture details "
+            "via the request flow and call save_appointment_request)."
         )
     # ─────────────────────────────────────────────────────────────────
 
