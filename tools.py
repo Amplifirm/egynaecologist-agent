@@ -421,6 +421,36 @@ async def transfer_to_colleague(
         log.exception("Could not read escalation_phone from DB; using env fallback")
     log.info("Transfer target: %s", target)
 
+    # ───────────────────── LOOP-PROTECTION GUARD ─────────────────────
+    # Refuse to dial a number that would create a self-call loop.
+    def _digits(s: str) -> str:
+        return "".join(ch for ch in (s or "") if ch.isdigit())
+
+    target_digits = _digits(target)
+    inbound_digits = _digits(os.environ.get("TWILIO_PHONE_NUMBER", ""))
+    caller_digits = _digits(state.caller_phone or "")
+
+    if not target_digits or len(target_digits) < 7:
+        log.error("LOOP GUARD: target %r is not a valid number — refusing to dial", target)
+        state.transfer_succeeded = False
+        return (
+            "ERROR: the configured escalation phone is not a valid number. Apologise to "
+            "the caller and switch to taking a callback (capture details via the request "
+            "flow and call save_appointment_request)."
+        )
+    if target_digits == inbound_digits or (caller_digits and target_digits == caller_digits):
+        log.error(
+            "LOOP GUARD: target=%s would loop back to inbound/caller — refusing to dial",
+            target,
+        )
+        state.transfer_succeeded = False
+        return (
+            "ERROR: the escalation phone matches the inbound number or the caller — a "
+            "transfer would loop. Apologise and switch to taking a callback (capture "
+            "details via the request flow and call save_appointment_request)."
+        )
+    # ─────────────────────────────────────────────────────────────────
+
     outbound_trunk_id = os.environ.get("LIVEKIT_OUTBOUND_TRUNK_ID")
     if not state.room_name:
         return (
@@ -482,12 +512,14 @@ async def transfer_to_colleague(
                     participant_name="Colleague",
                     wait_until_answered=True,
                     play_dialtone=False,
-                    # 14s = ~3 rings — enough for an actual human to answer while
-                    # bounding how long the caller waits in hold music if no one
-                    # picks up. UK carrier voicemails generally pick up at 20-25s,
-                    # so 14s usually wins the race.
+                    # 14s = ~3 rings — enough for a human, before voicemail.
                     ringing_timeout=_Duration(seconds=14),
-                    max_call_duration=_Duration(seconds=1800),
+                    # Hard 10-minute cap. If LiveKit/Twilio fail to tear down for
+                    # any reason, the bridge dies at 600s. Combined with the
+                    # twilio_watchdog (which also kills calls > 600s server-side)
+                    # this is the belt-and-braces protection against another
+                    # 4-hour billing leak.
+                    max_call_duration=_Duration(seconds=600),
                 )
             )
             bridged = True

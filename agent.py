@@ -9,6 +9,7 @@ Run as worker (for production / Railway):
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 
@@ -42,6 +43,7 @@ from livekit.plugins import anthropic, assemblyai, elevenlabs, openai, silero
 import db
 import tools
 from prompts import build_system_prompt, is_within_working_hours_now
+from twilio_watchdog import start_watchdog_in_background
 
 log = logging.getLogger("agent")
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
@@ -137,6 +139,19 @@ def _find_sip_participant_identity(ctx: JobContext) -> str | None:
 
 
 async def entrypoint(ctx: JobContext) -> None:
+    # Start (or no-op-restart) the Twilio watchdog the moment a job runs. It's
+    # idempotent — if a previous job already started it, asyncio.create_task
+    # creates a new one, but we tag it with a name so duplicates are visible.
+    # The watchdog kills any Twilio call alive longer than TWILIO_MAX_CALL_SECONDS.
+    try:
+        loop = asyncio.get_running_loop()
+        existing = [t for t in asyncio.all_tasks(loop) if t.get_name() == "twilio-watchdog" and not t.done()]
+        if not existing:
+            start_watchdog_in_background()
+            log.info("Twilio watchdog launched")
+    except Exception:
+        log.exception("Failed to launch Twilio watchdog")
+
     await ctx.connect()
     log.info("Agent connected to room %s", ctx.room.name)
 
@@ -238,6 +253,32 @@ async def entrypoint(ctx: JobContext) -> None:
 
 
 if __name__ == "__main__":
+    # Spawn the Twilio watchdog as a sibling subprocess BEFORE the worker starts.
+    # This runs an independent always-on loop that kills any Twilio call alive
+    # for >TWILIO_MAX_CALL_SECONDS (default 600). Even if the agent worker
+    # crashes, this subprocess keeps running and protects the bill.
+    import atexit
+    import subprocess as _sp
+    import sys as _sys
+    _watchdog_proc = None
+    try:
+        _watchdog_proc = _sp.Popen(
+            [_sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "twilio_watchdog.py")],
+        )
+        log.info("Spawned twilio_watchdog subprocess pid=%s", _watchdog_proc.pid)
+
+        def _kill_watchdog():
+            try:
+                if _watchdog_proc and _watchdog_proc.poll() is None:
+                    _watchdog_proc.terminate()
+                    log.info("Terminated twilio_watchdog on shutdown")
+            except Exception:
+                pass
+
+        atexit.register(_kill_watchdog)
+    except Exception:
+        log.exception("Failed to spawn twilio_watchdog subprocess")
+
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
